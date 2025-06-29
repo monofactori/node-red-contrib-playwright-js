@@ -49,7 +49,24 @@ module.exports = function(RED) {
                 
                 try {
                     // Пытаемся распарсить JSON результат
-                    const result = JSON.parse(stdout.trim());
+                    let result;
+                    const output = stdout.trim();
+                    
+                    // Если вывод содержит заголовок + JSON (как в логах)
+                    if (output.includes('Заголовок страницы:')) {
+                        const lines = output.split('\n');
+                        const jsonStart = lines.findIndex(line => line.trim().startsWith('{'));
+                        if (jsonStart >= 0) {
+                            const jsonStr = lines.slice(jsonStart).join('\n');
+                            result = JSON.parse(jsonStr);
+                        } else {
+                            throw new Error('JSON не найден в выводе');
+                        }
+                    } else {
+                        // Обычный JSON
+                        result = JSON.parse(output);
+                    }
+                    
                     resolve(result);
                 } catch (e) {
                     // Если не JSON, возвращаем как есть
@@ -94,8 +111,31 @@ module.exports = function(RED) {
                 });
                 
                 if (result.success) {
-                    // Успех
-                    msg.payload = result;
+                    // Обработка результата в зависимости от типа действия
+                    if (action === 'screenshot' && result.screenshot) {
+                        // Для скриншота возвращаем Buffer вместо base64
+                        const screenshotBuffer = Buffer.from(result.screenshot, 'base64');
+                        
+                        msg.payload = screenshotBuffer;
+                        msg.filename = `screenshot-${Date.now()}.png`;
+                        msg.mimetype = 'image/png';
+                        msg.title = result.title;
+                        msg.url = url;
+                        msg.timestamp = result.timestamp || new Date().toISOString();
+                        
+                        // Опционально сохраняем также метаданные
+                        msg.metadata = {
+                            success: true,
+                            title: result.title,
+                            url: url,
+                            size: screenshotBuffer.length,
+                            timestamp: result.timestamp || new Date().toISOString()
+                        };
+                    } else {
+                        // Для других действий возвращаем как обычно
+                        msg.payload = result;
+                    }
+                    
                     node.status({fill:"green", shape:"dot", text:"Успешно"});
                     node.send([msg, null]);
                 } else {
