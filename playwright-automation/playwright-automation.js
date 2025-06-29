@@ -13,7 +13,7 @@ module.exports = function(RED) {
             
             switch (action) {
                 case 'test':
-                    command = `${scriptPath} test`;
+                    command = `${scriptPath} test "${params.url}"`;
                     break;
                 case 'screenshot':
                     command = `cd /root/web-automation && xvfb-run -a node -e "
