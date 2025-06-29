@@ -1,11 +1,12 @@
 module.exports = function(RED) {
     const { exec } = require('child_process');
+    const path = require('path');
 
     // Функция для выполнения скрапинга
     async function executeScraping(url, selectors) {
         return new Promise((resolve, reject) => {
             // Используем наш готовый скрипт для скрапинга
-            const scriptPath = '/root/web-automation/playwright-node-red.sh';
+            const scriptPath = path.join(__dirname, '..', 'scripts', 'playwright-node-red.sh');
             const selectorsJson = JSON.stringify(selectors).replace(/"/g, '\\"');
             const command = `${scriptPath} scrape "${url}" '${JSON.stringify(selectors)}'`;
             

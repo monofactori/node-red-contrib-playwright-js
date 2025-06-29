@@ -7,7 +7,7 @@ module.exports = function(RED) {
     async function executePlaywright(action, params) {
         return new Promise((resolve, reject) => {
             // Используем наш готовый скрипт
-            const scriptPath = '/root/web-automation/playwright-node-red.sh';
+            const scriptPath = path.join(__dirname, '..', 'scripts', 'playwright-node-red.sh');
             
             let command;
             
@@ -16,7 +16,11 @@ module.exports = function(RED) {
                     command = `${scriptPath} test "${params.url}"`;
                     break;
                 case 'screenshot':
-                    command = `cd /root/web-automation && xvfb-run -a node -e "
+                    command = `${scriptPath} screenshot "${params.url}"`;
+                    break;
+                case 'screenshot-inline':
+                    const scriptsDir = path.join(__dirname, '..', 'scripts');
+                    command = `cd ${scriptsDir} && xvfb-run -a node -e "
                         const { chromium } = require('playwright');
                         (async () => {
                             const browser = await chromium.launch({ 

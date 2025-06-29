@@ -1,11 +1,12 @@
 module.exports = function(RED) {
     const { exec } = require('child_process');
+    const path = require('path');
 
     // Функция для выполнения автоматизации форм
     async function executeFormAutomation(url, formData) {
         return new Promise((resolve, reject) => {
             // Используем наш готовый скрипт для форм
-            const scriptPath = '/root/web-automation/playwright-node-red.sh';
+            const scriptPath = path.join(__dirname, '..', 'scripts', 'playwright-node-red.sh');
             const formDataJson = JSON.stringify(formData);
             const command = `${scriptPath} fill-form '${formDataJson}'`;
             
