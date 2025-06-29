@@ -16,21 +16,20 @@ module.exports = function(RED) {
                     command = `${scriptPath} test`;
                     break;
                 case 'screenshot':
-                    const url = params.url || 'https://example.com';
                     command = `cd /root/web-automation && xvfb-run -a node -e "
                         const { chromium } = require('playwright');
                         (async () => {
                             const browser = await chromium.launch({ 
-                                headless: false,
+                                headless: true,
                                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--disable-web-security', '--disable-features=VizDisplayCompositor']
                             });
                             const page = await browser.newPage();
-                            await page.goto('${url}');
+                            await page.goto('${params.url}', { timeout: 60000 });
                             await page.waitForTimeout(${params.delay || 1000});
                             const screenshot = await page.screenshot({ encoding: 'base64', fullPage: true });
                             const title = await page.title();
                             await browser.close();
-                            console.log(JSON.stringify({ success: true, screenshot, title, url: '${url}' }));
+                            console.log(JSON.stringify({ success: true, screenshot, title, url: '${params.url}' }));
                         })().catch(err => console.log(JSON.stringify({ success: false, error: err.message })));
                     "`;
                     break;
@@ -64,8 +63,13 @@ module.exports = function(RED) {
             try {
                 // Получаем параметры из сообщения или конфигурации
                 const action = msg.action || config.action || 'test';
-                const url = msg.url || config.url || 'https://example.com';
+                const url = msg.url || config.url;
                 const delay = msg.delay || config.delay || 1000;
+                
+                // Проверяем что URL передан
+                if (!url) {
+                    throw new Error('URL не указан. Укажите URL в msg.url или в настройках узла');
+                }
                 
                 // Валидация URL если нужен
                 if ((action === 'screenshot' || action === 'test') && url) {
