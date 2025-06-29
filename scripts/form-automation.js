@@ -7,9 +7,7 @@ async function fillForm(formData) {
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--disable-web-security',
-            '--disable-features=VizDisplayCompositor'
+            '--disable-gpu'
         ]
     });
     const page = await browser.newPage();
@@ -69,9 +67,7 @@ async function scrapePage(url, selectors) {
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--disable-web-security',
-            '--disable-features=VizDisplayCompositor'
+            '--disable-gpu'
         ]
     });
     const page = await browser.newPage();

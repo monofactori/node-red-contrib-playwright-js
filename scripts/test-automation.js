@@ -10,8 +10,7 @@ async function runAutomation(url = 'https://example.com') {
             '--disable-dev-shm-usage',
             '--disable-gpu',
             '--disable-web-security',
-            '--disable-features=VizDisplayCompositor',
-            '--virtual-time-budget=1000' // ограничиваем время выполнения
+            '--disable-features=VizDisplayCompositor'
         ]
     });
     const page = await browser.newPage();
