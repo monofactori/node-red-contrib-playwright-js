@@ -1,13 +1,9 @@
 {
   "name": "node-red-contrib-playwright-js",
-  "version": "0.1.1",
-  "description": "Node-RED узлы для автоматизации браузера с Playwright: скриншоты, парсинг, формы, клики",
+  "version": "0.2.0",
+  "description": "Node-RED узлы для веб-серфинга с Playwright: полноценная автоматизация браузера в сессиях",
   "main": "index.js",
   "files": [
-    "playwright-automation/*",
-    "playwright-scraper/*",
-    "playwright-form/*",
-    "playwright-clicker/*",
     "playwright-session/*"
   ],
   "scripts": {
@@ -18,26 +14,21 @@
     "playwright",
     "browser",
     "automation",
+    "web-surfing",
+    "session",
     "javascript",
-    "scraping",
-    "forms",
-    "clicker",
     "navigation",
-    "testing"
+    "raspberry-pi"
   ],
   "node-red": {
     "version": ">=2.0.0",
     "nodes": {
-      "playwright-automation": "playwright-automation/playwright-automation.js",
-      "playwright-scraper": "playwright-scraper/playwright-scraper.js",
-      "playwright-form": "playwright-form/playwright-form.js",
-      "playwright-clicker": "playwright-clicker/playwright-clicker.js",
       "playwright-session-start": "playwright-session/playwright-session-start.js",
       "playwright-session-action": "playwright-session/playwright-session-action.js",
       "playwright-session-end": "playwright-session/playwright-session-end.js"
     }
   },
-  "author": "Raspberry Pi Automation",
+  "author": "Raspberry Pi Web Surfing",
   "license": "MIT",
   "repository": {
     "type": "git",

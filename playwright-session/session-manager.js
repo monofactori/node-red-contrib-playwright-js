@@ -262,6 +262,245 @@ class SessionManager {
                     result.message = `Прокрутка на ${x}, ${y}`;
                     break;
 
+                // 🍪 Cookies и Storage
+                case 'set_cookies':
+                    if (!params.cookies || !Array.isArray(params.cookies)) {
+                        throw new Error('Требуется параметр cookies (массив)');
+                    }
+                    await page.context().addCookies(params.cookies);
+                    result.message = `Установлено ${params.cookies.length} cookies`;
+                    break;
+
+                case 'get_cookies':
+                    result.cookies = await page.context().cookies();
+                    result.message = `Получено ${result.cookies.length} cookies`;
+                    break;
+
+                case 'clear_cookies':
+                    await page.context().clearCookies();
+                    result.message = 'Cookies очищены';
+                    break;
+
+                case 'set_local_storage':
+                    if (!params.key || params.value === undefined) {
+                        throw new Error('Требуются параметры: key, value');
+                    }
+                    await page.evaluate(({key, value}) => localStorage.setItem(key, value), params);
+                    result.message = `LocalStorage: ${params.key} установлен`;
+                    break;
+
+                // 🌐 Headers и User-Agent
+                case 'set_user_agent':
+                    if (!params.user_agent) {
+                        throw new Error('Требуется параметр user_agent');
+                    }
+                    await page.setUserAgent(params.user_agent);
+                    result.message = `User-Agent установлен: ${params.user_agent}`;
+                    break;
+
+                case 'set_extra_headers':
+                    if (!params.headers || typeof params.headers !== 'object') {
+                        throw new Error('Требуется параметр headers (объект)');
+                    }
+                    await page.setExtraHTTPHeaders(params.headers);
+                    result.message = `Установлены заголовки: ${Object.keys(params.headers).join(', ')}`;
+                    break;
+
+                // 📱 Эмуляция устройств
+                case 'emulate_device':
+                    if (!params.device_name) {
+                        throw new Error('Требуется параметр device_name');
+                    }
+                    const devices = require('playwright').devices;
+                    if (devices[params.device_name]) {
+                        await page.emulate(devices[params.device_name]);
+                        result.message = `Эмулируется устройство: ${params.device_name}`;
+                    } else {
+                        throw new Error(`Устройство ${params.device_name} не найдено`);
+                    }
+                    break;
+
+                case 'set_viewport':
+                    const width = params.width || 1920;
+                    const height = params.height || 1080;
+                    await page.setViewportSize({ width, height });
+                    result.message = `Размер экрана: ${width}x${height}`;
+                    break;
+
+                // 📂 Файлы
+                case 'upload_file':
+                    if (!params.selector || !params.file_path) {
+                        throw new Error('Требуются параметры: selector, file_path');
+                    }
+                    await page.setInputFiles(params.selector, params.file_path);
+                    result.message = `Файл загружен: ${params.file_path}`;
+                    break;
+
+                case 'download_file':
+                    if (!params.download_trigger) {
+                        throw new Error('Требуется параметр download_trigger (selector или function)');
+                    }
+                    const downloadPromise = page.waitForEvent('download');
+                    if (typeof params.download_trigger === 'string') {
+                        await page.click(params.download_trigger);
+                    } else {
+                        await page.evaluate(params.download_trigger);
+                    }
+                    const download = await downloadPromise;
+                    const download_path = params.save_path || `./downloads/${download.suggestedFilename()}`;
+                    await download.saveAs(download_path);
+                    result.download_path = download_path;
+                    result.message = `Файл скачан: ${download_path}`;
+                    break;
+
+                // 🗨️ Диалоги
+                case 'handle_dialog':
+                    if (!params.action) {
+                        throw new Error('Требуется параметр action (accept/dismiss)');
+                    }
+                    page.once('dialog', async dialog => {
+                        if (params.action === 'accept') {
+                            await dialog.accept(params.prompt_text || '');
+                        } else {
+                            await dialog.dismiss();
+                        }
+                    });
+                    result.message = `Обработка диалогов настроена: ${params.action}`;
+                    break;
+
+                // 🔄 Продвинутая навигация
+                case 'wait_for_navigation':
+                    const navigationPromise = page.waitForNavigation({
+                        waitUntil: params.wait_until || 'networkidle',
+                        timeout: params.timeout || 30000
+                    });
+                    if (params.trigger_selector) {
+                        await page.click(params.trigger_selector);
+                    }
+                    await navigationPromise;
+                    result.new_url = page.url();
+                    result.message = 'Навигация завершена';
+                    break;
+
+                case 'hover':
+                    if (!params.selector) {
+                        throw new Error('Требуется параметр: selector');
+                    }
+                    await page.hover(params.selector);
+                    result.message = `Наведение на ${params.selector}`;
+                    break;
+
+                case 'focus':
+                    if (!params.selector) {
+                        throw new Error('Требуется параметр: selector');
+                    }
+                    await page.focus(params.selector);
+                    result.message = `Фокус на ${params.selector}`;
+                    break;
+
+                case 'press_key':
+                    if (!params.key) {
+                        throw new Error('Требуется параметр: key');
+                    }
+                    if (params.selector) {
+                        await page.press(params.selector, params.key);
+                    } else {
+                        await page.keyboard.press(params.key);
+                    }
+                    result.message = `Нажата клавиша: ${params.key}`;
+                    break;
+
+                case 'type_text':
+                    if (!params.text) {
+                        throw new Error('Требуется параметр: text');
+                    }
+                    if (params.selector) {
+                        await page.type(params.selector, params.text, { delay: params.delay || 100 });
+                    } else {
+                        await page.keyboard.type(params.text, { delay: params.delay || 100 });
+                    }
+                    result.message = `Введен текст: ${params.text}`;
+                    break;
+
+                // 🛡️ Антидетект и обход
+                case 'accept_cookie_banner':
+                    // Пытаемся найти и нажать кнопки принятия cookies
+                    const cookieSelectors = [
+                        'button[id*="accept"]', 'button[class*="accept"]',
+                        'button[id*="cookie"]', 'button[class*="cookie"]',
+                        'button:has-text("Accept")', 'button:has-text("Принять")',
+                        'button:has-text("OK")', 'button:has-text("Согласен")',
+                        '[data-testid*="accept"]', '[data-cy*="accept"]'
+                    ];
+                    
+                    let clicked = false;
+                    for (const selector of cookieSelectors) {
+                        try {
+                            await page.click(selector, { timeout: 2000 });
+                            clicked = true;
+                            break;
+                        } catch (e) {
+                            // Пробуем следующий селектор
+                        }
+                    }
+                    result.message = clicked ? 'Cookie banner принят' : 'Cookie banner не найден';
+                    break;
+
+                case 'stealth_mode':
+                    // Базовые настройки стелс-режима
+                    await page.addInitScript(() => {
+                        // Удаляем webdriver свойство
+                        delete navigator.__proto__.webdriver;
+                        
+                        // Переопределяем геттер languages
+                        Object.defineProperty(navigator, 'languages', {
+                            get: () => ['ru-RU', 'ru', 'en-US', 'en'],
+                        });
+                        
+                        // Переопределяем геттер plugins
+                        Object.defineProperty(navigator, 'plugins', {
+                            get: () => [1, 2, 3, 4, 5],
+                        });
+                    });
+                    result.message = 'Стелс-режим активирован';
+                    break;
+
+                // 📊 Улучшенное извлечение данных
+                case 'get_all_links':
+                    const links = await page.evaluate(() => {
+                        return Array.from(document.querySelectorAll('a[href]')).map(a => ({
+                            text: a.textContent.trim(),
+                            href: a.href,
+                            target: a.target
+                        }));
+                    });
+                    result.links = links;
+                    result.message = `Найдено ${links.length} ссылок`;
+                    break;
+
+                case 'get_page_info':
+                    const pageInfo = await page.evaluate(() => ({
+                        title: document.title,
+                        url: location.href,
+                        domain: location.hostname,
+                        readyState: document.readyState,
+                        cookies: document.cookie,
+                        userAgent: navigator.userAgent,
+                        viewport: {
+                            width: window.innerWidth,
+                            height: window.innerHeight
+                        }
+                    }));
+                    result.page_info = pageInfo;
+                    result.message = 'Информация о странице получена';
+                    break;
+
+                case 'wait_for_load':
+                    const loadState = params.load_state || 'load';
+                    await page.waitForLoadState(loadState, { timeout: params.timeout || 30000 });
+                    result.message = `Страница загружена (${loadState})`;
+                    break;
+
                 default:
                     throw new Error(`Неизвестное действие: ${action}`);
             }
