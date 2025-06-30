@@ -1,0 +1,97 @@
+<script type="text/javascript">
+    RED.nodes.registerType('playwright-session-end', {
+        category: 'function',
+        color: '#F44336',
+        defaults: {
+            name: {value: ""}
+        },
+        inputs: 1,
+        outputs: 2,
+        outputLabels: ["Успех", "Ошибка"],
+        icon: "font-awesome/fa-stop-circle",
+        label: function() {
+            return this.name || "Закрыть сессию";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="playwright-session-end">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Название</label>
+        <input type="text" id="node-input-name" placeholder="Закрыть сессию">
+    </div>
+    
+    <div class="form-tips">
+        <p><strong>🔴 Эта нода закрывает сессию браузера и освобождает ресурсы.</strong></p>
+        <p>session_id автоматически берется из входящего сообщения.</p>
+        <p>После закрытия сессии, браузер становится недоступен для дальнейших действий.</p>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="playwright-session-end">
+    <p>🔴 <strong>Закрыть сессию браузера</strong></p>
+    
+    <h3>Описание</h3>
+    <p>Закрывает сессию браузера и освобождает все связанные ресурсы (браузер, страницы, контекст).</p>
+    
+    <h3>Входные параметры</h3>
+    <dl class="message-properties">
+        <dt>session_id <span class="property-type">строка</span></dt>
+        <dd><strong>Обязательно.</strong> ID сессии для закрытия</dd>
+    </dl>
+
+    <h3>Выходные параметры</h3>
+    <dl class="message-properties">
+        <dt>payload.success <span class="property-type">boolean</span></dt>
+        <dd>Результат закрытия сессии</dd>
+        
+        <dt>payload.closed <span class="property-type">boolean</span></dt>
+        <dd>true - сессия была закрыта, false - уже была закрыта</dd>
+        
+        <dt>payload.message <span class="property-type">строка</span></dt>
+        <dd>Сообщение о результате операции</dd>
+    </dl>
+
+    <h3>Выходы</h3>
+    <ol class="node-ports">
+        <li><strong>Успех:</strong> Сессия закрыта успешно</li>
+        <li><strong>Ошибка:</strong> Ошибка при закрытии</li>
+    </ol>
+
+    <h3>Пример использования</h3>
+    <pre>
+// Входное сообщение:
+{
+  "session_id": "sess_1672531200000_abc123"
+}
+
+// Выходное сообщение:
+{
+  "payload": {
+    "success": true,
+    "closed": true,
+    "session_id": "sess_1672531200000_abc123",
+    "message": "Сессия закрыта успешно"
+  }
+}
+    </pre>
+    
+    <h3>Важно</h3>
+    <ul>
+        <li>🧹 <strong>Освобождает ресурсы:</strong> браузер, память, процессы</li>
+        <li>⚠️ <strong>После закрытия</strong> session_id становится недействительным</li>
+        <li>🔄 <strong>Автоочистка:</strong> сессии автоматически закрываются через 30 мин неактивности</li>
+        <li>🛑 <strong>Graceful shutdown:</strong> все сессии закрываются при остановке Node-RED</li>
+    </ul>
+    
+    <h3>Типичная цепочка</h3>
+    <pre>
+[inject] → [session-start] → [session-action] → [session-action] → [session-end]
+   ↓            ↓                  ↓               ↓               ↓
+ Старт      Открыть           Ввести email     Кликнуть        Закрыть
+           браузер           в форму          кнопку          браузер
+    </pre>
+</script> 

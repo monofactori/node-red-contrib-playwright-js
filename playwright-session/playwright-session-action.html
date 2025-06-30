@@ -1,0 +1,151 @@
+<script type="text/javascript">
+    RED.nodes.registerType('playwright-session-action', {
+        category: 'function',
+        color: '#2196F3',
+        defaults: {
+            name: {value: ""},
+            action: {value: "", required: false},
+            selector: {value: "", required: false},
+            value: {value: "", required: false},
+            url: {value: "", required: false},
+            timeout: {value: 30000, required: false, validate: function(v) { return v === "" || !isNaN(v); }},
+            wait_after: {value: 0, required: false, validate: function(v) { return v === "" || !isNaN(v); }}
+        },
+        inputs: 1,
+        outputs: 2,
+        outputLabels: ["Успех", "Ошибка"],
+        icon: "font-awesome/fa-cogs",
+        label: function() {
+            if (this.name) return this.name;
+            if (this.action) return "Действие: " + this.action;
+            return "Действие в сессии";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function() {
+            // Обработчик изменения типа действия
+            $("#node-input-action").change(function() {
+                const action = $(this).val();
+                showHideFields(action);
+            });
+            
+            // Показать/скрыть поля в зависимости от действия
+            function showHideFields(action) {
+                $(".action-field").hide();
+                
+                if (action.includes('fill') || action === 'click' || action === 'get_text' || action === 'wait_for_element') {
+                    $(".field-selector").show();
+                }
+                
+                if (action.includes('fill')) {
+                    $(".field-value").show();
+                }
+                
+                if (action === 'navigate') {
+                    $(".field-url").show();
+                }
+                
+                if (action.includes('wait') || action === 'click') {
+                    $(".field-timeout").show();
+                }
+                
+                if (action === 'click') {
+                    $(".field-wait-after").show();
+                }
+            }
+            
+            // Инициализация
+            setTimeout(() => {
+                showHideFields($("#node-input-action").val());
+            }, 100);
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="playwright-session-action">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Название</label>
+        <input type="text" id="node-input-name" placeholder="Действие в сессии">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-action"><i class="fa fa-play"></i> Действие</label>
+        <select id="node-input-action">
+            <option value="">-- Выберите действие --</option>
+            <optgroup label="📝 Ввод данных">
+                <option value="fill_form">Заполнить поле</option>
+                <option value="select_option">Выбрать в dropdown</option>
+            </optgroup>
+            <optgroup label="🖱️ Клики и навигация">
+                <option value="click">Кликнуть</option>
+                <option value="navigate">Перейти на страницу</option>
+                <option value="go_back">Назад</option>
+                <option value="reload">Перезагрузить</option>
+            </optgroup>
+            <optgroup label="⏳ Ожидание">
+                <option value="wait_for_element">Ждать элемент</option>
+                <option value="wait_timeout">Просто ждать</option>
+            </optgroup>
+            <optgroup label="📊 Получение данных">
+                <option value="screenshot">Скриншот</option>
+                <option value="scrape">Извлечь данные</option>
+                <option value="get_text">Получить текст</option>
+            </optgroup>
+        </select>
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-selector"><i class="fa fa-crosshairs"></i> CSS селектор</label>
+        <input type="text" id="node-input-selector" placeholder="input[name='email'], button.submit">
+        <div class="form-tips">CSS селектор элемента (для fill_form, click, etc.)</div>
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-value"><i class="fa fa-pencil"></i> Значение</label>
+        <input type="text" id="node-input-value" placeholder="Текст для ввода">
+        <div class="form-tips">Значение для ввода в поле (для fill_form)</div>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="playwright-session-action">
+    <p>🔵 <strong>Действие в сессии браузера</strong></p>
+    
+    <h3>Описание</h3>
+    <p>Универсальная нода для выполнения действий в существующей сессии браузера.</p>
+    
+    <h3>Входные параметры</h3>
+    <dl class="message-properties">
+        <dt>session_id <span class="property-type">строка</span></dt>
+        <dd><strong>Обязательно.</strong> ID сессии от playwright-session-start</dd>
+        
+        <dt>action <span class="property-type">строка</span></dt>
+        <dd>Тип действия: fill_form, click, screenshot, etc.</dd>
+        
+        <dt>selector <span class="property-type">строка</span></dt>
+        <dd>CSS селектор элемента</dd>
+        
+        <dt>value <span class="property-type">строка</span></dt>
+        <dd>Значение для ввода</dd>
+    </dl>
+
+    <h3>Действия</h3>
+    <ul>
+        <li><strong>fill_form</strong> - заполнить поле (selector, value)</li>
+        <li><strong>click</strong> - кликнуть элемент (selector)</li>
+        <li><strong>screenshot</strong> - сделать скриншот</li>
+        <li><strong>navigate</strong> - перейти на страницу (url)</li>
+        <li><strong>wait_for_element</strong> - ждать элемент (selector)</li>
+        <li><strong>scrape</strong> - извлечь данные (selectors)</li>
+    </ul>
+
+    <h3>Пример</h3>
+    <pre>
+{
+  "session_id": "sess_12345",
+  "action": "fill_form",
+  "selector": "input[name='email']",
+  "value": "user@example.com"
+}
+    </pre>
+</script> 

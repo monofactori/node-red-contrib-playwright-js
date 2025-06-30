@@ -1,0 +1,114 @@
+<script type="text/javascript">
+    RED.nodes.registerType('playwright-session-start', {
+        category: 'function',
+        color: '#4CAF50',
+        defaults: {
+            name: {value: ""},
+            url: {value: "", required: false},
+            browser_options: {value: "{}", required: false}
+        },
+        inputs: 1,
+        outputs: 2,
+        outputLabels: ["Успех", "Ошибка"],
+        icon: "font-awesome/fa-play-circle",
+        label: function() {
+            return this.name || "Начать сессию";
+        },
+        labelStyle: function() {
+            return this.name ? "node_label_italic" : "";
+        },
+        oneditprepare: function() {
+            // Инициализация редактора опций браузера
+            if (!this.browser_options) {
+                this.browser_options = "{}";
+            }
+        }
+    });
+</script>
+
+<script type="text/html" data-template-name="playwright-session-start">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Название</label>
+        <input type="text" id="node-input-name" placeholder="Начать сессию">
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-url"><i class="fa fa-globe"></i> URL</label>
+        <input type="text" id="node-input-url" placeholder="https://example.com">
+        <div class="form-tips">
+            <strong>URL сайта для открытия.</strong><br>
+            Можно оставить пустым и передать в msg.url
+        </div>
+    </div>
+    
+    <div class="form-row">
+        <label for="node-input-browser_options"><i class="fa fa-cog"></i> Опции браузера</label>
+        <input type="text" id="node-input-browser_options" placeholder='{"headless": true}'>
+        <div class="form-tips">
+            <strong>JSON опции для Playwright браузера</strong><br>
+            Например: {"headless": false, "slowMo": 100}
+        </div>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="playwright-session-start">
+    <p>🟢 <strong>Начать сессию браузера</strong></p>
+    
+    <h3>Описание</h3>
+    <p>Создает новую сессию браузера Playwright и возвращает session_id для последующих действий.</p>
+    
+    <h3>Входные параметры</h3>
+    <dl class="message-properties">
+        <dt>url <span class="property-type">строка</span></dt>
+        <dd>URL сайта для открытия. Переопределяет настройку ноды.</dd>
+        
+        <dt>browser_options <span class="property-type">объект</span></dt>
+        <dd>Опции запуска браузера (headless, slowMo, etc.)</dd>
+    </dl>
+
+    <h3>Выходные параметры</h3>
+    <dl class="message-properties">
+        <dt>session_id <span class="property-type">строка</span></dt>
+        <dd>Уникальный ID созданной сессии браузера</dd>
+        
+        <dt>browser_ready <span class="property-type">boolean</span></dt>
+        <dd>true - браузер готов к работе</dd>
+        
+        <dt>initial_url <span class="property-type">строка</span></dt>
+        <dd>URL который был открыт</dd>
+        
+        <dt>payload.success <span class="property-type">boolean</span></dt>
+        <dd>Результат создания сессии</dd>
+    </dl>
+
+    <h3>Выходы</h3>
+    <ol class="node-ports">
+        <li><strong>Успех:</strong> Сессия создана успешно</li>
+        <li><strong>Ошибка:</strong> Ошибка создания сессии</li>
+    </ol>
+
+    <h3>Пример использования</h3>
+    <pre>
+// Входное сообщение:
+{ "url": "https://google.com" }
+
+// Выходное сообщение:
+{
+  "session_id": "sess_1672531200000_abc123",
+  "browser_ready": true,
+  "initial_url": "https://google.com",
+  "payload": {
+    "success": true,
+    "session_id": "sess_1672531200000_abc123",
+    "message": "Сессия браузера создана успешно"
+  }
+}
+    </pre>
+    
+    <h3>Важно</h3>
+    <ul>
+        <li>🔗 <strong>session_id</strong> автоматически передается следующим нодам</li>
+        <li>⏰ Сессии автоматически закрываются через 30 минут неактивности</li>
+        <li>🧹 Используйте <strong>playwright-session-end</strong> для явного закрытия</li>
+    </ul>
+</script> 

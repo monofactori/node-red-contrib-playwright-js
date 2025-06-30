@@ -1,0 +1,321 @@
+[
+    {
+        "id": "flow_google_search_fixed",
+        "type": "tab",
+        "label": "🐐 Google Search: Козы (исправлено)",
+        "disabled": false,
+        "info": "Исправленная демонстрация поиска в Google:\n1. Открыть Google\n2. Ввести поиск 'козы'\n3. Отправить форму через JavaScript (надежнее клика)\n4. Сделать скриншот\n5. Закрыть сессию"
+    },
+    {
+        "id": "inject_start_fixed",
+        "type": "inject",
+        "z": "flow_google_search_fixed",
+        "name": "🚀 Запустить поиск",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "url",
+                "v": "https://www.google.com",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{}",
+        "payloadType": "json",
+        "x": 160,
+        "y": 100,
+        "wires": [
+            [
+                "session_start_fixed"
+            ]
+        ]
+    },
+    {
+        "id": "session_start_fixed",
+        "type": "playwright-session-start",
+        "z": "flow_google_search_fixed",
+        "name": "🟢 Открыть Google",
+        "url": "https://www.google.com",
+        "browser_options": "{}",
+        "x": 380,
+        "y": 100,
+        "wires": [
+            [
+                "delay_1_fixed",
+                "debug_start_fixed"
+            ],
+            [
+                "debug_error_fixed"
+            ]
+        ]
+    },
+    {
+        "id": "delay_1_fixed",
+        "type": "delay",
+        "z": "flow_google_search_fixed",
+        "name": "⏳ Ждем загрузки",
+        "pauseType": "delay",
+        "timeout": "3",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "x": 580,
+        "y": 100,
+        "wires": [
+            [
+                "action_fill_search_fixed"
+            ]
+        ]
+    },
+    {
+        "id": "action_fill_search_fixed",
+        "type": "playwright-session-action",
+        "z": "flow_google_search_fixed",
+        "name": "🔍 Ввести 'козы'",
+        "action": "fill_form",
+        "selector": "input[name='q'], textarea[name='q']",
+        "value": "козы",
+        "x": 780,
+        "y": 100,
+        "wires": [
+            [
+                "action_submit_form_fixed",
+                "debug_fill_fixed"
+            ],
+            [
+                "debug_error_fixed"
+            ]
+        ]
+    },
+    {
+        "id": "action_submit_form_fixed",
+        "type": "playwright-session-action",
+        "z": "flow_google_search_fixed",
+        "name": "⌨️ Отправить форму",
+        "action": "execute_js",
+        "selector": "",
+        "value": "",
+        "code": "document.querySelector('input[name=\"q\"], textarea[name=\"q\"]').form.submit()",
+        "x": 990,
+        "y": 100,
+        "wires": [
+            [
+                "delay_2_fixed",
+                "debug_search_fixed"
+            ],
+            [
+                "debug_error_fixed"
+            ]
+        ]
+    },
+    {
+        "id": "delay_2_fixed",
+        "type": "delay",
+        "z": "flow_google_search_fixed",
+        "name": "⏳ Ждем результаты",
+        "pauseType": "delay",
+        "timeout": "4",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "x": 1200,
+        "y": 100,
+        "wires": [
+            [
+                "action_screenshot_fixed"
+            ]
+        ]
+    },
+    {
+        "id": "action_screenshot_fixed",
+        "type": "playwright-session-action",
+        "z": "flow_google_search_fixed",
+        "name": "📸 Скриншот результатов",
+        "action": "screenshot",
+        "selector": "",
+        "value": "",
+        "full_page": true,
+        "x": 420,
+        "y": 200,
+        "wires": [
+            [
+                "action_get_url_fixed",
+                "debug_screenshot_fixed"
+            ],
+            [
+                "debug_error_fixed"
+            ]
+        ]
+    },
+    {
+        "id": "action_get_url_fixed",
+        "type": "playwright-session-action",
+        "z": "flow_google_search_fixed",
+        "name": "🌐 Получить URL",
+        "action": "get_url",
+        "selector": "",
+        "value": "",
+        "x": 650,
+        "y": 200,
+        "wires": [
+            [
+                "session_end_fixed",
+                "debug_url_fixed"
+            ],
+            [
+                "debug_error_fixed"
+            ]
+        ]
+    },
+    {
+        "id": "session_end_fixed",
+        "type": "playwright-session-end",
+        "z": "flow_google_search_fixed",
+        "name": "🔴 Закрыть сессию",
+        "x": 880,
+        "y": 200,
+        "wires": [
+            [
+                "debug_result_fixed"
+            ],
+            [
+                "debug_error_fixed"
+            ]
+        ]
+    },
+    {
+        "id": "debug_start_fixed",
+        "type": "debug",
+        "z": "flow_google_search_fixed",
+        "name": "✅ Сессия создана",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 600,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "debug_fill_fixed",
+        "type": "debug",
+        "z": "flow_google_search_fixed",
+        "name": "🔍 Поиск введен",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1000,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "debug_search_fixed",
+        "type": "debug",
+        "z": "flow_google_search_fixed",
+        "name": "⌨️ Форма отправлена",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1220,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "debug_screenshot_fixed",
+        "type": "debug",
+        "z": "flow_google_search_fixed",
+        "name": "📸 Скриншот готов",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "screenshot",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 440,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "debug_url_fixed",
+        "type": "debug",
+        "z": "flow_google_search_fixed",
+        "name": "🌐 URL получен",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload.current_url",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 670,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "debug_result_fixed",
+        "type": "debug",
+        "z": "flow_google_search_fixed",
+        "name": "🎉 Готово!",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1090,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "debug_error_fixed",
+        "type": "debug",
+        "z": "flow_google_search_fixed",
+        "name": "❌ Ошибка",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 650,
+        "y": 320,
+        "wires": []
+    }
+]

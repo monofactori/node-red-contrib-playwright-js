@@ -1,13 +1,14 @@
 {
   "name": "node-red-contrib-playwright-js",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Node-RED узлы для автоматизации браузера с Playwright: скриншоты, парсинг, формы, клики",
   "main": "index.js",
   "files": [
     "playwright-automation/*",
     "playwright-scraper/*",
     "playwright-form/*",
-    "playwright-clicker/*"
+    "playwright-clicker/*",
+    "playwright-session/*"
   ],
   "scripts": {
     "test": "echo \"Ошибка: тест не указан\" && exit 1"
@@ -30,7 +31,10 @@
       "playwright-automation": "playwright-automation/playwright-automation.js",
       "playwright-scraper": "playwright-scraper/playwright-scraper.js",
       "playwright-form": "playwright-form/playwright-form.js",
-      "playwright-clicker": "playwright-clicker/playwright-clicker.js"
+      "playwright-clicker": "playwright-clicker/playwright-clicker.js",
+      "playwright-session-start": "playwright-session/playwright-session-start.js",
+      "playwright-session-action": "playwright-session/playwright-session-action.js",
+      "playwright-session-end": "playwright-session/playwright-session-end.js"
     }
   },
   "author": "Raspberry Pi Automation",
