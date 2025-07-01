@@ -426,23 +426,67 @@ class SessionManager {
                 case 'accept_cookie_banner':
                     // Пытаемся найти и нажать кнопки принятия cookies
                     const cookieSelectors = [
+                        // Специфичные селекторы для популярных сайтов
+                        '#onetrust-accept-btn-handler', // OneTrust (LTX Studio, многие сайты)
+                        '#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll', // Cookiebot
                         'button[id*="accept"]', 'button[class*="accept"]',
                         'button[id*="cookie"]', 'button[class*="cookie"]',
-                        'button:has-text("Accept")', 'button:has-text("Принять")',
-                        'button:has-text("OK")', 'button:has-text("Согласен")',
-                        '[data-testid*="accept"]', '[data-cy*="accept"]'
+                        'button:has-text("Accept")', 'button:has-text("Allow All")',
+                        'button:has-text("Принять")', 'button:has-text("OK")', 
+                        'button:has-text("Согласен")', 'button:has-text("I Accept")',
+                        '[data-testid*="accept"]', '[data-cy*="accept"]',
+                        '.cookie-accept', '.accept-cookies',
+                        '[aria-label*="Accept"]', '[aria-label*="Allow"]'
                     ];
                     
                     let clicked = false;
+                    let attempts = [];
+                    
+                    // Сначала ждем появления любого cookie banner
+                    try {
+                        await page.waitForSelector('#onetrust-banner-sdk, .cookie-banner, [class*="cookie"], [id*="cookie"]', { 
+                            timeout: 5000 
+                        });
+                        await page.waitForTimeout(1000); // Даем время на анимацию
+                    } catch (e) {
+                        // Продолжаем даже если не нашли banner
+                    }
+                    
+                    // Пробуем кликнуть по кнопкам
                     for (const selector of cookieSelectors) {
                         try {
-                            await page.click(selector, { timeout: 2000 });
-                            clicked = true;
-                            break;
+                            // Проверяем что элемент существует и видим
+                            const element = await page.$(selector);
+                            if (element) {
+                                const isVisible = await element.isVisible();
+                                if (isVisible) {
+                                    await page.click(selector, { timeout: 3000 });
+                                    clicked = true;
+                                    attempts.push({ selector, success: true, method: 'click' });
+                                    break;
+                                } else {
+                                    // Пробуем принудительно показать и кликнуть
+                                    await page.evaluate((sel) => {
+                                        const el = document.querySelector(sel);
+                                        if (el) {
+                                            el.style.display = 'block';
+                                            el.style.visibility = 'visible';
+                                            el.style.opacity = '1';
+                                            el.click();
+                                        }
+                                    }, selector);
+                                    clicked = true;
+                                    attempts.push({ selector, success: true, method: 'force_click' });
+                                    break;
+                                }
+                            }
                         } catch (e) {
-                            // Пробуем следующий селектор
+                            attempts.push({ selector, success: false, error: e.message });
                         }
                     }
+                    
+                    result.clicked = clicked;
+                    result.attempts = attempts;
                     result.message = clicked ? 'Cookie banner принят' : 'Cookie banner не найден';
                     break;
 
