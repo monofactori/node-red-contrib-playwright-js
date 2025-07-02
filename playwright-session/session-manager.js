@@ -36,17 +36,16 @@ class SessionManager {
 
             console.log('🟢 Создание новой сессии браузера...');
             const browser = await chromium.launch(browserOptions);
-            const context = await browser.newContext();
+            
+            // 🛡️ Создаем контекст с реалистичным User-Agent (без HeadlessChrome!)
+            const context = await browser.newContext({
+                userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            });
             const page = await context.newPage();
             
-            // Переходим на начальную страницу
-            if (url) {
-                console.log(`🌐 Переход на: ${url}`);
-                await page.goto(url, { 
-                    waitUntil: 'networkidle', 
-                    timeout: 60000 
-                });
-            }
+            // НЕ открываем URL сразу! Это нужно делать ПОСЛЕ применения стелс-режима
+            // URL будет использован позже через действие "navigate"
+            console.log('🛡️ Браузер создан. Используйте стелс-режим ДО навигации на целевой сайт!');
 
             // Генерируем уникальный ID сессии
             const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -491,22 +490,389 @@ class SessionManager {
                     break;
 
                 case 'stealth_mode':
-                    // Базовые настройки стелс-режима
+                    // 🛡️ ПРОДВИНУТЫЙ СТЕЛС-РЕЖИМ для обхода bot.sannysoft.com
                     await page.addInitScript(() => {
-                        // Удаляем webdriver свойство
-                        delete navigator.__proto__.webdriver;
+                        // 1. УМНОЕ скрытие WebDriver properties (без Proxy)
                         
-                        // Переопределяем геттер languages
+                        // Безопасное удаление webdriver
+                        try {
+                            Object.defineProperty(navigator, 'webdriver', {
+                                get: () => undefined,
+                                enumerable: false,
+                                configurable: true
+                            });
+                        } catch(e) {}
+                        
+                        // Очищаем webdriver из разных мест
+                        try {
+                            delete Navigator.prototype.webdriver;
+                            delete navigator.__proto__.webdriver;
+                            delete navigator.webdriver;
+                        } catch(e) {}
+                        
+                        // Проверяем что webdriver действительно undefined
+                        if (navigator.webdriver !== undefined) {
+                            try {
+                                navigator.webdriver = undefined;
+                            } catch(e) {}
+                        }
+                        
+                        // 2. Chrome properties - исправляем "Chrome (New) missing"
+                        Object.defineProperty(window, 'chrome', {
+                            value: {
+                                runtime: {
+                                    onConnect: undefined,
+                                    onMessage: undefined,
+                                },
+                                loadTimes: function() { return {}; },
+                                csi: function() { return {}; },
+                            },
+                            configurable: true,
+                            enumerable: true,
+                            writable: true
+                        });
+
+                        // 3. Permissions API
+                        const originalQuery = window.navigator.permissions.query;
+                        window.navigator.permissions.query = (parameters) => (
+                            parameters.name === 'notifications' ?
+                                Promise.resolve({ state: Notification.permission }) :
+                                originalQuery(parameters)
+                        );
+
+                        // 4. БЕЗОПАСНАЯ эмуляция Plugins (простой подход)
+                        
+                        try {
+                            // Создаем простой объект-массив для плагинов
+                            const fakePlugins = [
+                                {
+                                    description: "Portable Document Format",
+                                    filename: "internal-pdf-viewer",
+                                    length: 1,
+                                    name: "Chrome PDF Plugin"
+                                },
+                                {
+                                    description: "Portable Document Format", 
+                                    filename: "mhjfbmdgcfjbbpaeojofohoefgiehjai",
+                                    length: 1,
+                                    name: "Chrome PDF Viewer"
+                                },
+                                {
+                                    description: "Native Client",
+                                    filename: "internal-nacl-plugin", 
+                                    length: 2,
+                                    name: "Native Client"
+                                }
+                            ];
+                            
+                            // Добавляем методы как у PluginArray
+                            fakePlugins.refresh = function() {};
+                            fakePlugins.namedItem = function(name) {
+                                return this.find(plugin => plugin.name === name) || null;
+                            };
+                            
+                            // Пытаемся установить как navigator.plugins
+                            Object.defineProperty(navigator, 'plugins', {
+                                get: () => fakePlugins,
+                                enumerable: true,
+                                configurable: true
+                            });
+                        } catch(e) {
+                            console.warn('Не удалось переопределить plugins:', e);
+                        }
+
+                        // 5. Languages - более реалистичные
                         Object.defineProperty(navigator, 'languages', {
-                            get: () => ['ru-RU', 'ru', 'en-US', 'en'],
+                            get: () => ['en-US', 'en'],
+                        });
+
+                        // 6. WebGL - предотвращаем детекцию по контексту
+                        const getParameter = WebGLRenderingContext.prototype.getParameter;
+                        WebGLRenderingContext.prototype.getParameter = function(parameter) {
+                            if (parameter === 37445) {
+                                return 'Intel Inc.'; // UNMASKED_VENDOR_WEBGL
+                            }
+                            if (parameter === 37446) {
+                                return 'Intel Iris OpenGL Engine'; // UNMASKED_RENDERER_WEBGL  
+                            }
+                            return getParameter.call(this, parameter);
+                        };
+
+                        // 7. Canvas fingerprinting защита
+                        const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
+                        HTMLCanvasElement.prototype.toDataURL = function(...args) {
+                            // Добавляем минимальный шум к canvas
+                            const context = this.getContext('2d');
+                            if (context) {
+                                const originalData = context.getImageData(0, 0, this.width, this.height);
+                                // Добавляем микро-шум
+                                for (let i = 0; i < originalData.data.length; i += 4) {
+                                    originalData.data[i] += Math.floor(Math.random() * 2); // R
+                                    originalData.data[i + 1] += Math.floor(Math.random() * 2); // G  
+                                    originalData.data[i + 2] += Math.floor(Math.random() * 2); // B
+                                }
+                                context.putImageData(originalData, 0, 0);
+                            }
+                            return originalToDataURL.apply(this, args);
+                        };
+
+                        // 8. Screen properties - реалистичные значения
+                        Object.defineProperty(screen, 'colorDepth', {
+                            value: 24
                         });
                         
-                        // Переопределяем геттер plugins
-                        Object.defineProperty(navigator, 'plugins', {
-                            get: () => [1, 2, 3, 4, 5],
+                        Object.defineProperty(screen, 'pixelDepth', {
+                            value: 24
                         });
+
+                        // 9. Navigator properties
+                        Object.defineProperty(navigator, 'hardwareConcurrency', {
+                            value: 4
+                        });
+
+                        Object.defineProperty(navigator, 'deviceMemory', {
+                            value: 8
+                        });
+
+                        Object.defineProperty(navigator, 'doNotTrack', {
+                            value: null
+                        });
+
+                        // 10. ИСПРАВЛЕННЫЙ User Agent - убираем HeadlessChrome!
+                        if (navigator.userAgent.includes('HeadlessChrome') || !navigator.userAgent.includes('Chrome')) {
+                            Object.defineProperty(navigator, 'userAgent', {
+                                value: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                                writable: false,
+                                enumerable: true,
+                                configurable: false
+                            });
+                        }
+
+                        // 11. Notification API
+                        if (typeof Notification !== 'undefined') {
+                            Object.defineProperty(Notification, 'permission', {
+                                value: 'default'
+                            });
+                        }
+
+                        // 12. Battery API - удаляем если есть (может выдавать бота)
+                        if ('getBattery' in navigator) {
+                            delete navigator.getBattery;
+                        }
+
+                        // 13. Connection API - стандартизируем
+                        if ('connection' in navigator) {
+                            Object.defineProperty(navigator.connection, 'rtt', {
+                                value: 100
+                            });
+                        }
+
+                        // 14. Media devices
+                        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                            const originalEnumerate = navigator.mediaDevices.enumerateDevices;
+                            navigator.mediaDevices.enumerateDevices = function() {
+                                return originalEnumerate().then(devices => {
+                                    return devices.map(device => ({
+                                        ...device,
+                                        label: device.label || 'Default Device'
+                                    }));
+                                });
+                            };
+                        }
+
+                        // 15. Переопределяем toString для некоторых функций
+                        const nativeToStringFunctionString = Error.toString().replace(/Error/g, "toString");
+                        const nativeToString = Function.prototype.toString;
+                        
+                        Function.prototype.toString = function() {
+                            if (this === navigator.permissions.query) {
+                                return 'function query() { [native code] }';
+                            }
+                            return nativeToString.call(this);
+                        };
+
+                        console.log('🛡️ Продвинутый стелс-режим активирован');
                     });
-                    result.message = 'Стелс-режим активирован';
+
+                    // Дополнительные настройки на уровне browser context
+                    const { context } = session;
+                    
+                    // Блокируем WebRTC для предотвращения утечки IP
+                    await context.addInitScript(() => {
+                        Object.defineProperty(navigator, 'getUserMedia', {
+                            value: undefined
+                        });
+                        
+                        if (window.RTCPeerConnection) {
+                            window.RTCPeerConnection = undefined;
+                        }
+                        
+                        if (window.webkitRTCPeerConnection) {
+                            window.webkitRTCPeerConnection = undefined;
+                        }
+                    });
+
+                    result.message = 'Продвинутый стелс-режим активирован - обход bot.sannysoft.com';
+                    result.stealth_features = [
+                        'WebDriver properties скрыты',
+                        'Chrome object создан',
+                        'Plugins эмулированы',
+                        'Canvas fingerprinting защищен',
+                        'WebGL fingerprinting изменен',
+                        'Screen properties настроены',
+                        'WebRTC заблокирован',
+                        'Navigator properties стандартизированы'
+                    ];
+                    break;
+
+                case 'test_bot_detection':
+                    // 🔍 Тестирование детекции бота на bot.sannysoft.com
+                    const botTestUrl = params.test_url || 'https://bot.sannysoft.com/';
+                    
+                    await page.goto(botTestUrl, { 
+                        waitUntil: 'networkidle', 
+                        timeout: 60000 
+                    });
+                    
+                    // Ждем загрузки тестов
+                    await page.waitForTimeout(5000);
+                    
+                    // Извлекаем результаты тестов (безопасная версия)
+                    const testResults = await page.evaluate(() => {
+                        const results = {};
+                        
+                        // Ищем таблицу с результатами тестов
+                        const table = document.querySelector('table');
+                        if (table) {
+                            const rows = table.querySelectorAll('tr');
+                            rows.forEach(row => {
+                                const cells = row.querySelectorAll('td');
+                                if (cells.length >= 2) {
+                                    const testName = cells[0].textContent.trim();
+                                    const testResult = cells[1].textContent.trim();
+                                    if (testName && testResult) {
+                                        results[testName] = testResult;
+                                    }
+                                }
+                            });
+                        }
+                        
+                        // Дополнительная информация о браузере (безопасный доступ)
+                        const browserInfo = {};
+                        
+                        try {
+                            browserInfo.userAgent = navigator.userAgent || 'unknown';
+                        } catch(e) { browserInfo.userAgent = 'error'; }
+                        
+                        try {
+                            browserInfo.webdriver = navigator.webdriver;
+                        } catch(e) { browserInfo.webdriver = 'error'; }
+                        
+                        try {
+                            browserInfo.chrome = !!window.chrome;
+                        } catch(e) { browserInfo.chrome = false; }
+                        
+                        try {
+                            browserInfo.plugins = navigator.plugins ? navigator.plugins.length : 0;
+                        } catch(e) { browserInfo.plugins = 0; }
+                        
+                        try {
+                            browserInfo.languages = navigator.languages || [];
+                        } catch(e) { browserInfo.languages = []; }
+                        
+                        try {
+                            browserInfo.hardwareConcurrency = navigator.hardwareConcurrency || 4;
+                        } catch(e) { browserInfo.hardwareConcurrency = 4; }
+                        
+                        try {
+                            browserInfo.deviceMemory = navigator.deviceMemory || 8;
+                        } catch(e) { browserInfo.deviceMemory = 8; }
+                        
+                        try {
+                            browserInfo.doNotTrack = navigator.doNotTrack;
+                        } catch(e) { browserInfo.doNotTrack = null; }
+                        
+                        return {
+                            tests: results,
+                            browser_info: browserInfo,
+                            timestamp: new Date().toISOString()
+                        };
+                    });
+                    
+                    result.test_results = testResults;
+                    result.test_url = botTestUrl;
+                    result.message = 'Тестирование детекции бота завершено';
+                    break;
+
+                case 'stealth_user_agent':
+                    // 🔄 Смена User-Agent на реалистичный
+                    const userAgents = [
+                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+                        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0'
+                    ];
+                    
+                    const selectedUA = params.user_agent || userAgents[Math.floor(Math.random() * userAgents.length)];
+                    
+                    await page.setUserAgent(selectedUA);
+                    result.user_agent = selectedUA;
+                    result.message = 'User-Agent изменен';
+                    break;
+
+                case 'stealth_viewport':
+                    // 📱 Реалистичная настройка viewport
+                    const viewports = [
+                        { width: 1920, height: 1080 }, // Full HD
+                        { width: 1366, height: 768 },  // Популярное разрешение ноутбука
+                        { width: 1536, height: 864 },  // HD+
+                        { width: 1440, height: 900 },  // MacBook
+                        { width: 1280, height: 720 }   // HD
+                    ];
+                    
+                    const viewport = params.viewport || viewports[Math.floor(Math.random() * viewports.length)];
+                    
+                    await page.setViewportSize(viewport);
+                    result.viewport = viewport;
+                    result.message = `Viewport установлен: ${viewport.width}x${viewport.height}`;
+                    break;
+
+                case 'stealth_geolocation':
+                    // 🌍 Установка реалистичной геолокации
+                    const locations = {
+                        'new_york': { latitude: 40.7128, longitude: -74.0060, accuracy: 100 },
+                        'london': { latitude: 51.5074, longitude: -0.1278, accuracy: 100 },
+                        'tokyo': { latitude: 35.6762, longitude: 139.6503, accuracy: 100 },
+                        'moscow': { latitude: 55.7558, longitude: 37.6176, accuracy: 100 },
+                        'sydney': { latitude: -33.8688, longitude: 151.2093, accuracy: 100 }
+                    };
+                    
+                    const locationName = params.location || 'new_york';
+                    const location = locations[locationName] || locations.new_york;
+                    
+                    await page.setGeolocation(location);
+                    result.geolocation = { location: locationName, ...location };
+                    result.message = `Геолокация установлена: ${locationName}`;
+                    break;
+
+                case 'stealth_timezone':
+                    // 🕐 Установка временной зоны
+                    const timezones = [
+                        'America/New_York',
+                        'Europe/London', 
+                        'Asia/Tokyo',
+                        'Europe/Moscow',
+                        'Australia/Sydney',
+                        'America/Los_Angeles',
+                        'Europe/Berlin'
+                    ];
+                    
+                    const timezone = params.timezone || timezones[Math.floor(Math.random() * timezones.length)];
+                    
+                    await page.emulateTimezone(timezone);
+                    result.timezone = timezone;
+                    result.message = `Временная зона установлена: ${timezone}`;
                     break;
 
                 // 📊 Улучшенное извлечение данных

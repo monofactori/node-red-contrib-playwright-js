@@ -7,33 +7,23 @@ module.exports = function(RED) {
         
         this.on('input', async function(msg) {
             try {
-                // Получаем URL из сообщения или конфигурации
-                const url = msg.url || config.url;
-                
-                if (!url) {
-                    throw new Error('URL обязателен для создания сессии. Укажите в msg.url или в настройках ноды');
-                }
-
-                // Валидация URL
-                try {
-                    new URL(url);
-                } catch (e) {
-                    throw new Error(`Неправильный URL: ${url}`);
-                }
+                // URL теперь необязателен! Браузер создается без навигации
+                // Используйте действие "stealth_mode" а затем "navigate" для безопасного открытия сайтов
+                const url = msg.url || config.url || null;
 
                 node.status({fill:"blue", shape:"dot", text:"Создание сессии..."});
-                node.log(`🟢 Создание новой сессии для ${url}`);
+                node.log(`🟢 Создание новой браузерной сессии (без навигации)`);
                 
                 // Опции браузера из сообщения или конфигурации
                 const browserOptions = msg.browser_options || config.browser_options || {};
                 
-                // Создаем сессию
+                // Создаем сессию БЕЗ навигации (для безопасности)
                 const sessionId = await sessionManager.createSession(url, browserOptions);
                 
                 // Формируем результат
                 msg.session_id = sessionId;
                 msg.browser_ready = true;
-                msg.initial_url = url;
+                msg.initial_url = url || null;
                 msg.timestamp = new Date().toISOString();
                 
                 // Сохраняем оригинальный payload, добавляем метаданные
@@ -45,8 +35,8 @@ module.exports = function(RED) {
                     success: true,
                     session_id: sessionId,
                     browser_ready: true,
-                    initial_url: url,
-                    message: 'Сессия браузера создана успешно',
+                    initial_url: url || null,
+                    message: 'Браузер создан. Используйте stealth_mode → navigate для безопасного серфинга',
                     timestamp: new Date().toISOString()
                 });
 
