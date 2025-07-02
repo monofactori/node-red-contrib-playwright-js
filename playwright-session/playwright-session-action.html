@@ -57,6 +57,7 @@
                 // Действия требующие URL
                 if (action === 'navigate') {
                     $(".field-url").show();
+                    $(".field-waituntil").show();
                 }
                 
                 // Действия с таймаутом
@@ -167,6 +168,17 @@
         <label for="node-input-url"><i class="fa fa-link"></i> URL</label>
         <input type="text" id="node-input-url" placeholder="https://example.com">
         <div class="form-tips">URL для перехода (для navigate)</div>
+    </div>
+    
+    <div class="form-row field-waituntil action-field" style="display:none;">
+        <label for="node-input-waituntil"><i class="fa fa-hourglass-half"></i> Ожидать</label>
+        <select id="node-input-waituntil">
+            <option value="">По умолчанию (domcontentloaded)</option>
+            <option value="domcontentloaded">DOM загружен (быстро)</option>
+            <option value="load">Полная загрузка (медленно)</option>
+            <option value="networkidle">Нет сетевых запросов (может зависнуть)</option>
+        </select>
+        <div class="form-tips">Тип ожидания для navigate - влияет на скорость и надежность</div>
     </div>
     
     <div class="form-row field-value action-field" style="display:none;">

@@ -147,12 +147,17 @@ class SessionManager {
                     if (!params.url) {
                         throw new Error('Требуется параметр: url');
                     }
-                    await page.goto(params.url, { 
-                        waitUntil: 'networkidle', 
-                        timeout: 60000 
-                    });
+                    
+                    // 🚀 Настраиваемые параметры навигации
+                    const navOptions = {
+                        waitUntil: params.waitUntil || 'domcontentloaded', // 'load', 'domcontentloaded', 'networkidle'
+                        timeout: params.timeout || 30000 // по умолчанию 30 сек вместо 60
+                    };
+                    
+                    console.log(`🌐 Переход на ${params.url}, ожидание: ${navOptions.waitUntil}, таймаут: ${navOptions.timeout}мс`);
+                    await page.goto(params.url, navOptions);
                     result.new_url = params.url;
-                    result.message = `Переход на ${params.url}`;
+                    result.message = `Переход на ${params.url} (${navOptions.waitUntil})`;
                     break;
 
                 case 'go_back':
@@ -540,11 +545,17 @@ class SessionManager {
                                 originalQuery(parameters)
                         );
 
-                        // 4. БЕЗОПАСНАЯ эмуляция Plugins (простой подход)
+                        // 4. ПРАВИЛЬНАЯ эмуляция PluginArray с наследованием
                         
                         try {
-                            // Создаем простой объект-массив для плагинов
-                            const fakePlugins = [
+                            // Получаем оригинальные плагины
+                            const originalPlugins = navigator.plugins;
+                            
+                            // Создаем новый PluginArray вручную
+                            const fakePluginArray = [];
+                            
+                            // Добавляем плагины
+                            const pluginData = [
                                 {
                                     description: "Portable Document Format",
                                     filename: "internal-pdf-viewer",
@@ -565,18 +576,41 @@ class SessionManager {
                                 }
                             ];
                             
-                            // Добавляем методы как у PluginArray
-                            fakePlugins.refresh = function() {};
-                            fakePlugins.namedItem = function(name) {
-                                return this.find(plugin => plugin.name === name) || null;
+                            // Копируем плагины в массив
+                            for (let i = 0; i < pluginData.length; i++) {
+                                fakePluginArray[i] = pluginData[i];
+                            }
+                            fakePluginArray.length = pluginData.length;
+                            
+                            // Устанавливаем правильный прототип
+                            Object.setPrototypeOf(fakePluginArray, PluginArray.prototype);
+                            
+                            // Добавляем методы PluginArray
+                            fakePluginArray.refresh = function() {};
+                            fakePluginArray.namedItem = function(name) {
+                                for (let i = 0; i < this.length; i++) {
+                                    if (this[i] && this[i].name === name) {
+                                        return this[i];
+                                    }
+                                }
+                                return null;
                             };
                             
-                            // Пытаемся установить как navigator.plugins
+                            // Делаем его неизменяемым как настоящий PluginArray
+                            Object.defineProperty(fakePluginArray, 'length', {
+                                value: pluginData.length,
+                                writable: false,
+                                enumerable: false,
+                                configurable: false
+                            });
+                            
+                            // Заменяем navigator.plugins
                             Object.defineProperty(navigator, 'plugins', {
-                                get: () => fakePlugins,
+                                get: () => fakePluginArray,
                                 enumerable: true,
                                 configurable: true
                             });
+                            
                         } catch(e) {
                             console.warn('Не удалось переопределить plugins:', e);
                         }

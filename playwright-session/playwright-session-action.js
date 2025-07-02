@@ -31,6 +31,7 @@ module.exports = function(RED) {
                     // Параметры ожидания
                     timeout: msg.timeout || config.timeout,
                     wait_after: msg.wait_after || config.wait_after,
+                    waitUntil: msg.waitUntil || config.waituntil, // для navigate
                     
                     // Параметры для заполнения множественных полей
                     fields: msg.fields || config.fields,
