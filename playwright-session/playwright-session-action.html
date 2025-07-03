@@ -9,7 +9,19 @@
             value: {value: "", required: false},
             url: {value: "", required: false},
             timeout: {value: 30000, required: false, validate: function(v) { return v === "" || !isNaN(v); }},
-            wait_after: {value: 0, required: false, validate: function(v) { return v === "" || !isNaN(v); }}
+            wait_after: {value: 0, required: false, validate: function(v) { return v === "" || !isNaN(v); }},
+            // Поля для капчи
+            api_key: {value: "", required: false},
+            website_url: {value: "", required: false},
+            website_key: {value: "", required: false},
+            response_selector: {value: "", required: false},
+            image_selector: {value: "", required: false},
+            input_selector: {value: "", required: false},
+            captcha_type: {value: "recaptcha_v2", required: false},
+            // Дополнительные поля для Turnstile
+            turnstile_action: {value: "", required: false},
+            cdata: {value: "", required: false},
+            chl_page_data: {value: "", required: false}
         },
         inputs: 1,
         outputs: 2,
@@ -28,6 +40,14 @@
             $("#node-input-action").change(function() {
                 const action = $(this).val();
                 showHideFields(action);
+            });
+            
+            // Обработчик изменения типа капчи для универсального решения
+            $("#node-input-captcha_type").change(function() {
+                const action = $("#node-input-action").val();
+                if (action === 'captcha_solve') {
+                    showHideFields(action);
+                }
             });
             
             // Показать/скрыть поля в зависимости от действия
@@ -72,6 +92,41 @@
                 // Действия с задержкой после
                 if (action === 'click' || action === 'type_text') {
                     $(".field-wait-after").show();
+                }
+                
+                // Действия с капчей - показываем специальные поля
+                const captchaActions = [
+                    'captcha_solve', 'captcha_recaptcha_v2', 'captcha_hcaptcha', 
+                    'captcha_turnstile', 'captcha_image', 'captcha_get_balance'
+                ];
+                if (captchaActions.includes(action)) {
+                    $(".field-captcha-api-key").show();
+                    
+                    if (action === 'captcha_recaptcha_v2' || action === 'captcha_hcaptcha' || 
+                        action === 'captcha_turnstile' ||
+                        (action === 'captcha_solve' && $("#node-input-captcha_type").val() !== 'image')) {
+                        $(".field-captcha-website-url").show();
+                        $(".field-captcha-website-key").show();
+                        $(".field-captcha-response-selector").show();
+                    }
+                    
+                    if (action === 'captcha_image' || 
+                        (action === 'captcha_solve' && $("#node-input-captcha_type").val() === 'image')) {
+                        $(".field-captcha-image-selector").show();
+                        $(".field-captcha-input-selector").show();
+                    }
+                    
+                    if (action === 'captcha_solve') {
+                        $(".field-captcha-type").show();
+                    }
+                    
+                    // Специальные поля для Turnstile
+                    if (action === 'captcha_turnstile' || 
+                        (action === 'captcha_solve' && $("#node-input-captcha_type").val() === 'turnstile')) {
+                        $(".field-turnstile-action").show();
+                        $(".field-turnstile-cdata").show();
+                        $(".field-turnstile-pagedata").show();
+                    }
                 }
             }
             
@@ -155,6 +210,14 @@
                 <option value="get_page_info">Информация о странице</option>
                 <option value="get_all_links">Все ссылки страницы</option>
             </optgroup>
+            <optgroup label="🤖 Решение капчи (CapMonster Cloud)">
+                <option value="captcha_get_balance">Проверить баланс</option>
+                <option value="captcha_recaptcha_v2">ReCaptcha v2</option>
+                <option value="captcha_hcaptcha">hCaptcha</option>
+                <option value="captcha_turnstile">Cloudflare Turnstile</option>
+                <option value="captcha_image">Текстовая капча (по изображению)</option>
+                <option value="captcha_solve">Универсальное решение</option>
+            </optgroup>
         </select>
     </div>
     
@@ -198,6 +261,73 @@
         <input type="number" id="node-input-wait_after" placeholder="0">
         <div class="form-tips">Задержка после выполнения действия</div>
     </div>
+    
+    <!-- 🤖 Поля для настройки капчи -->
+    <div class="form-row field-captcha-api-key action-field" style="display:none;">
+        <label for="node-input-api_key"><i class="fa fa-key"></i> CapMonster API ключ</label>
+        <input type="password" id="node-input-api_key" placeholder="Ваш API ключ от CapMonster Cloud">
+        <div class="form-tips">🔑 API ключ от <a href="https://capmonster.cloud/Dashboard" target="_blank">CapMonster Cloud</a>. Можно передать через msg.api_key</div>
+    </div>
+    
+    <div class="form-row field-captcha-type action-field" style="display:none;">
+        <label for="node-input-captcha_type"><i class="fa fa-cog"></i> Тип капчи</label>
+        <select id="node-input-captcha_type">
+            <option value="recaptcha_v2">ReCaptcha v2</option>
+            <option value="hcaptcha">hCaptcha</option>
+            <option value="turnstile">Cloudflare Turnstile</option>
+            <option value="image">Текстовая капча</option>
+        </select>
+        <div class="form-tips">Тип капчи для универсального решения</div>
+    </div>
+    
+    <div class="form-row field-captcha-website-url action-field" style="display:none;">
+        <label for="node-input-website_url"><i class="fa fa-globe"></i> URL сайта</label>
+        <input type="text" id="node-input-website_url" placeholder="https://site.com/login">
+        <div class="form-tips">🌐 URL страницы где находится капча</div>
+    </div>
+    
+    <div class="form-row field-captcha-website-key action-field" style="display:none;">
+        <label for="node-input-website_key"><i class="fa fa-unlock-alt"></i> Site Key</label>
+        <input type="text" id="node-input-website_key" placeholder="6Le-wvkSAAAAAPBMRTvw...">
+        <div class="form-tips">🔑 Site key капчи (data-sitekey для ReCaptcha, data-key для hCaptcha)</div>
+    </div>
+    
+    <div class="form-row field-captcha-response-selector action-field" style="display:none;">
+        <label for="node-input-response_selector"><i class="fa fa-target"></i> Селектор ответа</label>
+        <input type="text" id="node-input-response_selector" placeholder="[name='g-recaptcha-response']">
+        <div class="form-tips">📍 CSS селектор поля для вставки решения (опционально)</div>
+    </div>
+    
+    <div class="form-row field-captcha-image-selector action-field" style="display:none;">
+        <label for="node-input-image_selector"><i class="fa fa-image"></i> Селектор изображения</label>
+        <input type="text" id="node-input-image_selector" placeholder="img.captcha">
+        <div class="form-tips">🖼️ CSS селектор изображения с капчей</div>
+    </div>
+    
+    <div class="form-row field-captcha-input-selector action-field" style="display:none;">
+        <label for="node-input-input_selector"><i class="fa fa-pencil"></i> Селектор поля ввода</label>
+        <input type="text" id="node-input-input_selector" placeholder="input[name='captcha']">
+        <div class="form-tips">✏️ CSS селектор поля для ввода решения текстовой капчи</div>
+    </div>
+    
+    <!-- 🔐 Дополнительные поля для Turnstile -->
+    <div class="form-row field-turnstile-action action-field" style="display:none;">
+        <label for="node-input-turnstile_action"><i class="fa fa-play"></i> Action (опционально)</label>
+        <input type="text" id="node-input-turnstile_action" placeholder="login, register, submit">
+        <div class="form-tips">🎯 Параметр action для Cloudflare Turnstile (опционально)</div>
+    </div>
+    
+    <div class="form-row field-turnstile-cdata action-field" style="display:none;">
+        <label for="node-input-cdata"><i class="fa fa-code"></i> cData (опционально)</label>
+        <input type="text" id="node-input-cdata" placeholder="0000-1111-2222-3333">
+        <div class="form-tips">📊 Параметр cData для Cloudflare Challenge (опционально)</div>
+    </div>
+    
+    <div class="form-row field-turnstile-pagedata action-field" style="display:none;">
+        <label for="node-input-chl_page_data"><i class="fa fa-file-code-o"></i> Page Data (опционально)</label>
+        <input type="text" id="node-input-chl_page_data" placeholder="3gAFo2l...55NDFPRFE9">
+        <div class="form-tips">📄 Параметр chlPageData для Cloudflare Challenge (опционально)</div>
+    </div>
 </script>
 
 <script type="text/html" data-help-name="playwright-session-action">
@@ -221,7 +351,17 @@
         <dd>Значение для ввода</dd>
     </dl>
 
-    <h3>🛡️ Продвинутый антидетект (NEW!)</h3>
+    <h3>🤖 Решение капчи с CapMonster Cloud (NEW!)</h3>
+    <ul>
+        <li><strong>captcha_get_balance</strong> - проверка баланса аккаунта (api_key)</li>
+        <li><strong>captcha_recaptcha_v2</strong> - решение ReCaptcha v2 (api_key, website_url, website_key)</li>
+        <li><strong>captcha_hcaptcha</strong> - решение hCaptcha (api_key, website_url, website_key)</li>
+        <li><strong>captcha_turnstile</strong> - решение Cloudflare Turnstile (api_key, website_url, website_key)</li>
+        <li><strong>captcha_image</strong> - текстовые капчи (api_key, image_selector, input_selector)</li>
+        <li><strong>captcha_solve</strong> - универсальное решение (api_key, type, ...)</li>
+    </ul>
+
+    <h3>🛡️ Продвинутый антидетект</h3>
     <ul>
         <li><strong>stealth_mode</strong> - продвинутое сокрытие автоматизации (обход bot.sannysoft.com)</li>
         <li><strong>test_bot_detection</strong> - тестирование детекции на bot.sannysoft.com</li>
@@ -242,6 +382,47 @@
         <li><strong>execute_js</strong> - выполнить JavaScript (code)</li>
         <li><strong>get_page_info</strong> - получить информацию о странице</li>
     </ul>
+
+    <h3>🤖 Пример решения капчи</h3>
+    <pre>
+// 1. Проверка баланса CapMonster Cloud
+{
+  "session_id": "sess_12345",
+  "action": "captcha_get_balance",
+  "api_key": "YOUR_API_KEY"
+}
+
+// 2. Решение ReCaptcha v2 с автовставкой
+{
+  "session_id": "sess_12345",
+  "action": "captcha_recaptcha_v2",
+  "api_key": "YOUR_API_KEY",
+  "website_url": "https://site.com/login",
+  "website_key": "6Le-wvkSAAAAAPBMRTvw...",
+  "response_selector": "[name='g-recaptcha-response']"
+}
+
+// 3. Решение Cloudflare Turnstile
+{
+  "session_id": "sess_12345",
+  "action": "captcha_turnstile",
+  "api_key": "YOUR_API_KEY",
+  "website_url": "https://site.com/login",
+  "website_key": "0x4AAAAAAA...",
+  "turnstile_action": "login",
+  "cdata": "optional_token",
+  "response_selector": "[name='cf-turnstile-response']"
+}
+
+// 4. Решение текстовой капчи
+{
+  "session_id": "sess_12345",
+  "action": "captcha_image",
+  "api_key": "YOUR_API_KEY",
+  "image_selector": "img.captcha",
+  "input_selector": "input[name='captcha']"
+}
+    </pre>
 
     <h3>🛡️ Пример стелс-серфинга</h3>
     <pre>

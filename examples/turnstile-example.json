@@ -1,0 +1,186 @@
+[
+    {
+        "id": "turnstile-demo",
+        "type": "tab",
+        "label": "Cloudflare Turnstile Demo",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "inject-start",
+        "type": "inject",
+        "z": "turnstile-demo",
+        "name": "Начать тест Turnstile",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{}",
+        "payloadType": "json",
+        "x": 120,
+        "y": 80,
+        "wires": [
+            [
+                "session-start"
+            ]
+        ]
+    },
+    {
+        "id": "session-start",
+        "type": "playwright-session-start",
+        "z": "turnstile-demo",
+        "name": "Создать сессию",
+        "url": "https://example.com/turnstile-test",
+        "headless": true,
+        "x": 320,
+        "y": 80,
+        "wires": [
+            [
+                "setup-stealth"
+            ]
+        ]
+    },
+    {
+        "id": "setup-stealth",
+        "type": "playwright-session-action",
+        "z": "turnstile-demo",
+        "name": "Настроить стелс-режим",
+        "action": "stealth_mode",
+        "x": 520,
+        "y": 80,
+        "wires": [
+            [
+                "navigate-page"
+            ]
+        ]
+    },
+    {
+        "id": "navigate-page",
+        "type": "playwright-session-action",
+        "z": "turnstile-demo",
+        "name": "Перейти на страницу",
+        "action": "navigate",
+        "params": {
+            "url": "https://demo.turnstile.workers.dev/",
+            "waitUntil": "networkidle"
+        },
+        "x": 720,
+        "y": 80,
+        "wires": [
+            [
+                "solve-turnstile"
+            ]
+        ]
+    },
+    {
+        "id": "solve-turnstile",
+        "type": "playwright-session-action",
+        "z": "turnstile-demo",
+        "name": "Решить Turnstile",
+        "action": "captcha_turnstile",
+        "params": {
+            "api_key": "YOUR_CAPMONSTER_API_KEY",
+            "website_url": "https://demo.turnstile.workers.dev/",
+            "website_key": "0x4AAAAAAA4FHDz9YhYHvFYA",
+            "action": "demo",
+            "response_selector": "[name='cf-turnstile-response']"
+        },
+        "x": 920,
+        "y": 80,
+        "wires": [
+            [
+                "submit-form"
+            ]
+        ]
+    },
+    {
+        "id": "submit-form",
+        "type": "playwright-session-action", 
+        "z": "turnstile-demo",
+        "name": "Отправить форму",
+        "action": "click",
+        "params": {
+            "selector": "input[type='submit']"
+        },
+        "x": 120,
+        "y": 160,
+        "wires": [
+            [
+                "wait-result"
+            ]
+        ]
+    },
+    {
+        "id": "wait-result",
+        "type": "playwright-session-action",
+        "z": "turnstile-demo", 
+        "name": "Ждать результат",
+        "action": "wait_for_text",
+        "params": {
+            "text": "success",
+            "timeout": 10000
+        },
+        "x": 320,
+        "y": 160,
+        "wires": [
+            [
+                "get-result"
+            ]
+        ]
+    },
+    {
+        "id": "get-result",
+        "type": "playwright-session-action",
+        "z": "turnstile-demo",
+        "name": "Получить результат", 
+        "action": "get_text",
+        "params": {
+            "selector": "body"
+        },
+        "x": 520,
+        "y": 160,
+        "wires": [
+            [
+                "session-end"
+            ]
+        ]
+    },
+    {
+        "id": "session-end",
+        "type": "playwright-session-end",
+        "z": "turnstile-demo",
+        "name": "Закрыть сессию",
+        "close_all": false,
+        "x": 720,
+        "y": 160,
+        "wires": [
+            [
+                "debug-output"
+            ]
+        ]
+    },
+    {
+        "id": "debug-output",
+        "type": "debug",
+        "z": "turnstile-demo",
+        "name": "Результат",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 920,
+        "y": 160,
+        "wires": []
+    }
+] 

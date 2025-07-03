@@ -1,5 +1,26 @@
 const { chromium } = require('playwright');
 
+// CapMonster Cloud клиент подгружается только при необходимости
+let CapMonsterCloudClientFactory, ClientOptions, RecaptchaV2Request, HcaptchaRequest, ImageToTextRequest, TurnstileRequest;
+
+// Функция для ленивой загрузки CapMonster клиента
+function loadCapMonsterClient() {
+    if (!CapMonsterCloudClientFactory) {
+        try {
+            const capmonster = require('@zennolab_com/capmonstercloud-client');
+            CapMonsterCloudClientFactory = capmonster.CapMonsterCloudClientFactory;
+            ClientOptions = capmonster.ClientOptions;
+            RecaptchaV2Request = capmonster.RecaptchaV2Request;
+            HcaptchaRequest = capmonster.HcaptchaRequest;
+            ImageToTextRequest = capmonster.ImageToTextRequest;
+            TurnstileRequest = capmonster.TurnstileRequest;
+            console.log('🤖 CapMonster Cloud клиент загружен успешно');
+        } catch (error) {
+            throw new Error('CapMonster Cloud клиент не установлен. Выполните: npm install @zennolab_com/capmonstercloud-client');
+        }
+    }
+}
+
 /**
  * 🧩 Менеджер сессий браузера для Node-RED Playwright
  * Управляет браузерными сессиями в памяти процесса Node-RED
@@ -907,6 +928,293 @@ class SessionManager {
                     await page.emulateTimezone(timezone);
                     result.timezone = timezone;
                     result.message = `Временная зона установлена: ${timezone}`;
+                    break;
+
+                // 🤖 CAPTCHA РЕШЕНИЕ с CapMonster Cloud
+                case 'captcha_solve':
+                    // Универсальный метод для решения разных типов капчи
+                    loadCapMonsterClient(); // Загружаем клиент при необходимости
+                    if (!params.api_key) {
+                        throw new Error('Требуется api_key от CapMonster Cloud');
+                    }
+                    
+                    const cmcClient = CapMonsterCloudClientFactory.Create(new ClientOptions({ 
+                        clientKey: params.api_key 
+                    }));
+                    
+                    let captchaRequest;
+                    const captchaType = params.type || 'recaptcha_v2';
+                    
+                    switch (captchaType) {
+                        case 'recaptcha_v2':
+                            if (!params.website_url || !params.website_key) {
+                                throw new Error('Для ReCaptcha v2 требуются: website_url, website_key');
+                            }
+                            captchaRequest = new RecaptchaV2Request({
+                                websiteURL: params.website_url,
+                                websiteKey: params.website_key,
+                                userAgent: params.user_agent || await page.evaluate(() => navigator.userAgent),
+                                proxy: params.proxy
+                            });
+                            break;
+                            
+                        case 'hcaptcha':
+                            if (!params.website_url || !params.website_key) {
+                                throw new Error('Для hCaptcha требуются: website_url, website_key');
+                            }
+                            captchaRequest = new HcaptchaRequest({
+                                websiteURL: params.website_url,
+                                websiteKey: params.website_key,
+                                userAgent: params.user_agent || await page.evaluate(() => navigator.userAgent),
+                                proxy: params.proxy
+                            });
+                            break;
+                            
+                        case 'image':
+                            if (!params.image_base64) {
+                                throw new Error('Для текстовой капчи требуется image_base64');
+                            }
+                            captchaRequest = new ImageToTextRequest({
+                                body: params.image_base64
+                            });
+                            break;
+                            
+                        case 'turnstile':
+                            if (!params.website_url || !params.website_key) {
+                                throw new Error('Для Turnstile требуются: website_url, website_key');
+                            }
+                            captchaRequest = new TurnstileRequest({
+                                websiteURL: params.website_url,
+                                websiteKey: params.website_key,
+                                action: params.turnstile_action,
+                                cData: params.cdata,
+                                chlPageData: params.chl_page_data,
+                                userAgent: params.user_agent || await page.evaluate(() => navigator.userAgent),
+                                proxy: params.proxy
+                            });
+                            break;
+                            
+                        default:
+                            throw new Error(`Неподдерживаемый тип капчи: ${captchaType}`);
+                    }
+                    
+                    console.log(`🤖 Решение капчи типа: ${captchaType}`);
+                    const captchaResult = await cmcClient.Solve(captchaRequest);
+                    
+                    result.captcha_solution = captchaResult;
+                    result.captcha_type = captchaType;
+                    result.message = `Капча ${captchaType} решена успешно`;
+                    break;
+
+                case 'captcha_recaptcha_v2':
+                    // 🔐 Специализированный метод для ReCaptcha v2
+                    loadCapMonsterClient(); // Загружаем клиент при необходимости
+                    if (!params.api_key) {
+                        throw new Error('Требуется api_key от CapMonster Cloud');
+                    }
+                    if (!params.website_url || !params.website_key) {
+                        throw new Error('Требуются параметры: website_url, website_key');
+                    }
+                    
+                    const recaptchaClient = CapMonsterCloudClientFactory.Create(new ClientOptions({ 
+                        clientKey: params.api_key 
+                    }));
+                    
+                    const recaptchaRequest = new RecaptchaV2Request({
+                        websiteURL: params.website_url,
+                        websiteKey: params.website_key,
+                        userAgent: params.user_agent || await page.evaluate(() => navigator.userAgent),
+                        proxy: params.proxy
+                    });
+                    
+                    console.log(`🔐 Решение ReCaptcha v2 для ${params.website_url}`);
+                    const recaptchaResult = await recaptchaClient.Solve(recaptchaRequest);
+                    
+                    // Автоматически вставляем решение в форму, если указан селектор
+                    if (params.response_selector) {
+                        await page.evaluate((selector, response) => {
+                            const element = document.querySelector(selector);
+                            if (element) {
+                                element.value = response;
+                                // Триггерим события для обновления
+                                element.dispatchEvent(new Event('input', { bubbles: true }));
+                                element.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }, params.response_selector, recaptchaResult.solution.gRecaptchaResponse);
+                        
+                        result.message = 'ReCaptcha v2 решена и вставлена в форму';
+                    } else {
+                        result.message = 'ReCaptcha v2 решена';
+                    }
+                    
+                    result.captcha_solution = recaptchaResult;
+                    result.g_recaptcha_response = recaptchaResult.solution.gRecaptchaResponse;
+                    break;
+
+                case 'captcha_hcaptcha':
+                    // 🛡️ Специализированный метод для hCaptcha
+                    loadCapMonsterClient(); // Загружаем клиент при необходимости
+                    if (!params.api_key) {
+                        throw new Error('Требуется api_key от CapMonster Cloud');
+                    }
+                    if (!params.website_url || !params.website_key) {
+                        throw new Error('Требуются параметры: website_url, website_key');
+                    }
+                    
+                    const hcaptchaClient = CapMonsterCloudClientFactory.Create(new ClientOptions({ 
+                        clientKey: params.api_key 
+                    }));
+                    
+                    const hcaptchaRequest = new HcaptchaRequest({
+                        websiteURL: params.website_url,
+                        websiteKey: params.website_key,
+                        userAgent: params.user_agent || await page.evaluate(() => navigator.userAgent),
+                        proxy: params.proxy
+                    });
+                    
+                    console.log(`🛡️ Решение hCaptcha для ${params.website_url}`);
+                    const hcaptchaResult = await hcaptchaClient.Solve(hcaptchaRequest);
+                    
+                    // Автоматически вставляем решение в форму, если указан селектор
+                    if (params.response_selector) {
+                        await page.evaluate((selector, response) => {
+                            const element = document.querySelector(selector);
+                            if (element) {
+                                element.value = response;
+                                element.dispatchEvent(new Event('input', { bubbles: true }));
+                                element.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }, params.response_selector, hcaptchaResult.solution.gRecaptchaResponse);
+                        
+                        result.message = 'hCaptcha решена и вставлена в форму';
+                    } else {
+                        result.message = 'hCaptcha решена';
+                    }
+                    
+                    result.captcha_solution = hcaptchaResult;
+                    result.h_captcha_response = hcaptchaResult.solution.gRecaptchaResponse;
+                    break;
+
+                case 'captcha_image':
+                    // 📷 Решение текстовой капчи по изображению
+                    loadCapMonsterClient(); // Загружаем клиент при необходимости
+                    if (!params.api_key) {
+                        throw new Error('Требуется api_key от CapMonster Cloud');
+                    }
+                    
+                    let imageBase64 = params.image_base64;
+                    
+                    // Если передан селектор изображения, получаем его
+                    if (!imageBase64 && params.image_selector) {
+                        imageBase64 = await page.evaluate((selector) => {
+                            const img = document.querySelector(selector);
+                            if (!img) return null;
+                            
+                            // Создаем canvas для конвертации в base64
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            canvas.width = img.naturalWidth || img.width;
+                            canvas.height = img.naturalHeight || img.height;
+                            ctx.drawImage(img, 0, 0);
+                            
+                            return canvas.toDataURL('image/png').split(',')[1];
+                        }, params.image_selector);
+                        
+                        if (!imageBase64) {
+                            throw new Error(`Изображение не найдено по селектору: ${params.image_selector}`);
+                        }
+                    }
+                    
+                    if (!imageBase64) {
+                        throw new Error('Требуется image_base64 или image_selector');
+                    }
+                    
+                    const imageClient = CapMonsterCloudClientFactory.Create(new ClientOptions({ 
+                        clientKey: params.api_key 
+                    }));
+                    
+                    const imageRequest = new ImageToTextRequest({
+                        body: imageBase64
+                    });
+                    
+                    console.log('📷 Решение текстовой капчи по изображению');
+                    const imageResult = await imageClient.Solve(imageRequest);
+                    
+                    // Автоматически вставляем текст в поле, если указан селектор
+                    if (params.input_selector) {
+                        await page.fill(params.input_selector, imageResult.solution.text);
+                        result.message = 'Текстовая капча решена и вставлена в поле';
+                    } else {
+                        result.message = 'Текстовая капча решена';
+                    }
+                    
+                    result.captcha_solution = imageResult;
+                    result.captcha_text = imageResult.solution.text;
+                    break;
+
+                case 'captcha_turnstile':
+                    // 🔐 Специализированный метод для Cloudflare Turnstile
+                    loadCapMonsterClient(); // Загружаем клиент при необходимости
+                    if (!params.api_key) {
+                        throw new Error('Требуется api_key от CapMonster Cloud');
+                    }
+                    if (!params.website_url || !params.website_key) {
+                        throw new Error('Требуются параметры: website_url, website_key');
+                    }
+                    
+                    const turnstileClient = CapMonsterCloudClientFactory.Create(new ClientOptions({ 
+                        clientKey: params.api_key 
+                    }));
+                    
+                    const turnstileRequest = new TurnstileRequest({
+                        websiteURL: params.website_url,
+                        websiteKey: params.website_key,
+                        action: params.turnstile_action,
+                        cData: params.cdata,
+                        chlPageData: params.chl_page_data,
+                        userAgent: params.user_agent || await page.evaluate(() => navigator.userAgent),
+                        proxy: params.proxy
+                    });
+                    
+                    console.log(`🔐 Решение Cloudflare Turnstile для ${params.website_url}`);
+                    const turnstileResult = await turnstileClient.Solve(turnstileRequest);
+                    
+                    // Автоматически вставляем решение в форму, если указан селектор
+                    if (params.response_selector) {
+                        await page.evaluate((selector, response) => {
+                            const element = document.querySelector(selector);
+                            if (element) {
+                                element.value = response;
+                                // Триггерим события для обновления
+                                element.dispatchEvent(new Event('input', { bubbles: true }));
+                                element.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+                        }, params.response_selector, turnstileResult.solution.token);
+                        
+                        result.message = 'Cloudflare Turnstile решена и вставлена в форму';
+                    } else {
+                        result.message = 'Cloudflare Turnstile решена';
+                    }
+                    
+                    result.captcha_solution = turnstileResult;
+                    result.turnstile_token = turnstileResult.solution.token;
+                    result.user_agent = turnstileResult.solution.userAgent;
+                    break;
+
+                case 'captcha_get_balance':
+                    // 💰 Проверка баланса CapMonster Cloud
+                    loadCapMonsterClient(); // Загружаем клиент при необходимости
+                    if (!params.api_key) {
+                        throw new Error('Требуется api_key от CapMonster Cloud');
+                    }
+                    
+                    const balanceClient = CapMonsterCloudClientFactory.Create(new ClientOptions({ 
+                        clientKey: params.api_key 
+                    }));
+                    
+                    const balance = await balanceClient.getBalance();
+                    result.balance = balance;
+                    result.message = `Баланс CapMonster Cloud: $${balance.balance}`;
                     break;
 
                 // 📊 Улучшенное извлечение данных

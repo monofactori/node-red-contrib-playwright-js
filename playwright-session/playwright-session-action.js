@@ -52,6 +52,23 @@ module.exports = function(RED) {
                     // Параметры для поиска текста
                     text: msg.text || config.text,
                     
+                    // Параметры для капчи CapMonster Cloud
+                    api_key: msg.api_key || config.api_key,
+                    website_url: msg.website_url || config.website_url,
+                    website_key: msg.website_key || config.website_key,
+                    response_selector: msg.response_selector || config.response_selector,
+                    image_selector: msg.image_selector || config.image_selector,
+                    input_selector: msg.input_selector || config.input_selector,
+                    type: msg.captcha_type || config.captcha_type || msg.type, // для captcha_solve
+                    image_base64: msg.image_base64, // только из сообщения
+                    user_agent: msg.user_agent,    // только из сообщения
+                    proxy: msg.proxy,              // только из сообщения
+                    
+                    // Дополнительные параметры для Turnstile
+                    turnstile_action: msg.turnstile_action || config.turnstile_action,
+                    cdata: msg.cdata || config.cdata,
+                    chl_page_data: msg.chl_page_data || config.chl_page_data,
+                    
                     // Дополнительные параметры из сообщения
                     ...msg.params
                 };
@@ -97,11 +114,42 @@ module.exports = function(RED) {
                 if (action === 'execute_js' && result.js_result !== undefined) {
                     msg.js_result = result.js_result;
                 }
+                
+                // Для капчи
+                if (action.startsWith('captcha_')) {
+                    if (result.captcha_solution) {
+                        msg.captcha_solution = result.captcha_solution;
+                    }
+                    if (result.g_recaptcha_response) {
+                        msg.g_recaptcha_response = result.g_recaptcha_response;
+                    }
+                    if (result.h_captcha_response) {
+                        msg.h_captcha_response = result.h_captcha_response;
+                    }
+                    if (result.turnstile_token) {
+                        msg.turnstile_token = result.turnstile_token;
+                    }
+                    if (result.user_agent) {
+                        msg.user_agent = result.user_agent;
+                    }
+                    if (result.captcha_text) {
+                        msg.captcha_text = result.captcha_text;
+                    }
+                    if (result.balance) {
+                        msg.balance = result.balance;
+                    }
+                }
 
                 const statusText = action === 'screenshot' ? 'Скриншот готов' : 
                                   action === 'click' ? 'Клик выполнен' :
                                   action === 'fill_form' ? 'Поле заполнено' :
                                   action === 'scrape' ? 'Данные извлечены' :
+                                  action === 'captcha_get_balance' ? 'Баланс получен' :
+                                  action === 'captcha_recaptcha_v2' ? 'ReCaptcha решена' :
+                                  action === 'captcha_hcaptcha' ? 'hCaptcha решена' :
+                                  action === 'captcha_turnstile' ? 'Turnstile решена' :
+                                  action === 'captcha_image' ? 'Текстовая капча решена' :
+                                  action === 'captcha_solve' ? 'Капча решена' :
                                   'Действие выполнено';
                 
                 node.status({fill:"green", shape:"dot", text: statusText});

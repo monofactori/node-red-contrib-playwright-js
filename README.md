@@ -1,6 +1,6 @@
-# 🎭 Node-RED Playwright Web Surfing v0.2.1
+# 🎭 Node-RED Playwright Web Surfing v0.2.7
 
-**Мощная система веб-серфинга на JavaScript для Node-RED с продвинутым антидетектом**
+**Мощная система веб-серфинга на JavaScript для Node-RED с продвинутым антидетектом и автоматическим решением капчи**
 
 ## 🚀 Упрощенная архитектура
 
@@ -72,6 +72,14 @@
 - `accept_cookie_banner` - автопринятие cookies
 - `handle_dialog` - обработка диалогов
 
+### 🤖 **Решение капчи с CapMonster Cloud 🆕**
+- `captcha_solve` - универсальное решение любых капч
+- `captcha_recaptcha_v2` - специально для ReCaptcha v2
+- `captcha_hcaptcha` - специально для hCaptcha
+- `captcha_turnstile` - специально для Cloudflare Turnstile 🆕
+- `captcha_image` - текстовые капчи по изображению
+- `captcha_get_balance` - проверка баланса аккаунта
+
 ### 📊 **Извлечение данных**
 - `screenshot` - скриншоты
 - `get_text`, `get_url` - получение данных
@@ -107,6 +115,32 @@
 
 // 6. Войти
 { "action": "click", "selector": "button.login" }
+```
+
+### 🤖 **Автоматический обход капчи при регистрации**
+```javascript
+// 1. Создать сессию с полным стелс-режимом
+{ "url": "https://site.com/register" }
+{ "action": "stealth_mode" }
+
+// 2. Заполнить форму регистрации
+{ "action": "fill_form", "selector": "input[name='email']", "value": "user@example.com" }
+{ "action": "fill_form", "selector": "input[name='password']", "value": "SecurePass123" }
+
+// 3. Решить ReCaptcha автоматически
+{ 
+  "action": "captcha_recaptcha_v2",
+  "api_key": "YOUR_CAPMONSTER_API_KEY",
+  "website_url": "https://site.com/register",
+  "website_key": "6Le-wvkSAAAAAPBMRTvw...",
+  "response_selector": "[name='g-recaptcha-response']"
+}
+
+// 4. Отправить форму
+{ "action": "click", "selector": "button[type='submit']" }
+
+// 5. Ждать подтверждения
+{ "action": "wait_for_text", "text": "Registration successful" }
 ```
 
 ### 🛒 **Автоматические покупки**
@@ -153,6 +187,61 @@
 
 // Автопринятие cookie banners
 { "action": "accept_cookie_banner" }
+```
+
+### 🤖 **Автоматическое решение капчи (CapMonster Cloud)**
+```javascript
+// Проверка баланса аккаунта
+{ "action": "captcha_get_balance", "api_key": "YOUR_API_KEY" }
+
+// Решение ReCaptcha v2
+{ 
+  "action": "captcha_recaptcha_v2",
+  "api_key": "YOUR_API_KEY",
+  "website_url": "https://site.com",
+  "website_key": "6Le-wvkSAAAAAPBMRTvw...",
+  "response_selector": "[name='g-recaptcha-response']"
+}
+
+// Решение hCaptcha
+{ 
+  "action": "captcha_hcaptcha",
+  "api_key": "YOUR_API_KEY",
+  "website_url": "https://site.com",
+  "website_key": "10000000-ffff-...",
+  "response_selector": "[name='h-captcha-response']"
+}
+
+// Решение Cloudflare Turnstile
+{ 
+  "action": "captcha_turnstile",
+  "api_key": "YOUR_API_KEY",
+  "website_url": "https://site.com",
+  "website_key": "0x4AAAAAAA...",
+  "action": "login",
+  "cdata": "optional_cdata_token",
+  "chl_page_data": "optional_page_data",
+  "response_selector": "[name='cf-turnstile-response']"
+}
+
+// Решение текстовой капчи по изображению
+{ 
+  "action": "captcha_image",
+  "api_key": "YOUR_API_KEY",
+  "image_selector": "img.captcha",
+  "input_selector": "input[name='captcha']"
+}
+
+// Универсальный метод для любых капч
+{ 
+  "action": "captcha_solve",
+  "api_key": "YOUR_API_KEY",
+  "type": "turnstile", // recaptcha_v2, hcaptcha, turnstile, image
+  "website_url": "https://site.com",
+  "website_key": "0x4AAAAAAA...",
+  "action": "login", // для turnstile
+  "cdata": "optional_token" // для turnstile
+}
 ```
 
 ### 🔴 **Управление сессиями (NEW!)** 🆕
@@ -240,7 +329,14 @@
 - **Интеграция:** Node-RED 2.0+
 - **Память:** Переиспользование сессий для экономии RAM
 
-## 🛡️ **НОВИНКА v0.2.1 - Продвинутый антидетект!**
+## 🛡️ **НОВИНКА v0.2.6 - CapMonster Cloud интеграция!**
+
+### **Автоматическое решение капчи:**
+- 🤖 **ReCaptcha v2** - полная поддержка с автовставкой
+- 🤖 **hCaptcha** - альтернатива ReCaptcha  
+- 🤖 **Текстовые капчи** - OCR распознавание изображений
+- 💰 **Проверка баланса** - контроль расходов
+- 🔄 **Универсальный API** - один метод для всех типов
 
 ### **Обход bot.sannysoft.com:**
 - ✅ **WebDriver (New)** - СКРЫТ
